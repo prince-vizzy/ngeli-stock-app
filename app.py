@@ -1,5 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-from werkzeug.security import check_password_hash
+from flask import Flask, render_template, request, redirect, url_for, flash
 import mysql.connector
 import os
 from dotenv import load_dotenv
@@ -19,44 +18,14 @@ db_config = {
     'database': os.environ.get('DB_NAME'),
 }
 
-# ---------------- LOGIN ------------------
-@app.route('/', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-
-        try:
-            conn = mysql.connector.connect(**db_config)
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-            user = cursor.fetchone()
-            cursor.close()
-            conn.close()
-
-            if user and check_password_hash(user['password_hash'], password):
-                session['username'] = user['username']
-                return redirect(url_for('stocks'))
-            else:
-                flash('Invalid username or password.')
-
-        except mysql.connector.Error as err:
-            flash(f"Database error: {err}")
-
-    return render_template('login.html')
-
-# ---------------- LOGOUT ------------------
-@app.route('/logout')
-def logout():
-    session.pop('username', None)
-    return redirect(url_for('login'))
+# ---------------- HOME REDIRECT TO STOCKS ------------------
+@app.route('/')
+def home():
+    return redirect(url_for('stocks'))
 
 # ---------------- STOCKS PAGE ------------------
 @app.route('/stocks')
 def stocks():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-
     try:
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor(dictionary=True)
@@ -75,9 +44,6 @@ def stocks():
 # ---------------- STOCK ACTION PAGE ------------------
 @app.route('/stock/<int:item_id>/<action>', methods=['GET', 'POST'])
 def stock_action(item_id, action):
-    if 'username' not in session:
-        return redirect(url_for('login'))
-
     try:
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor(dictionary=True)
