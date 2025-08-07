@@ -13,12 +13,13 @@ app.secret_key = os.environ.get('SECRET_KEY', 'fallback_secret_key')
 
 # Database config
 db_config = {
-    'host': 'your-db-host',       # e.g. 'sql8.freesqldatabase.com'
-    'user': 'your-username',      # e.g. 'sql8794024'
-    'password': 'your-password',  # e.g. 'your-db-password'
-    'database': 'your-db-name',   # e.g. 'sql8794024'
-    'port': 3306                  # or whatever port your service uses
+    'host': os.getenv('DB_HOST'),
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASSWORD'),
+    'database': os.getenv('DB_NAME'),
+    'port': 3306
 }
+
 
 
 # ---------------- ROOT ------------------
