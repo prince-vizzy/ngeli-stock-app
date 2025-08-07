@@ -23,9 +23,7 @@ db_config = {
 
 
 # ---------------- ROOT ------------------
-@app.route('/')
-def home():
-    return redirect(url_for('login'))
+
 
 @app.route('/')
 def index():
@@ -33,7 +31,6 @@ def index():
         return redirect(url_for('stocks'))
     else:
         return redirect(url_for('login'))
-
 
 # ---------------- LOGIN ------------------
 @app.route('/login', methods=['GET', 'POST'])
