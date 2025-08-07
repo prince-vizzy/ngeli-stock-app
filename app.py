@@ -47,7 +47,8 @@ def login():
             cursor.close()
             conn.close()
 
-            if user and check_password_hash(user['password'], password):
+            # Use 'password_hash' to match your table schema
+            if user and check_password_hash(user['password_hash'], password):
                 session['username'] = user['username']
                 flash('Login successful', 'success')
                 return redirect(url_for('stocks'))  # Adjust if needed
@@ -58,7 +59,6 @@ def login():
             flash(f"Database error: {err}", 'danger')
 
     return render_template('login.html')
-
 # ---------------- LOGOUT ------------------
 @app.route('/logout')
 def logout():
