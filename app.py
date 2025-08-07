@@ -9,14 +9,14 @@ load_dotenv()
 
 # Create Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY') or 'fallback_secret_key'  # Ensure it's never None
+app.secret_key = os.environ.get('SECRET_KEY') or 'fallback_secret_key'
 
 # ---------------- DATABASE CONFIG ------------------
 db_config = {
-    'host': 'sql8.freesqldatabase.com',
-    'user': 'sql8794024',
-    'password': 'uVCUIwx8Wy',
-    'database': 'sql8794024',
+    'host': os.environ.get('DB_HOST'),
+    'user': os.environ.get('DB_USER'),
+    'password': os.environ.get('DB_PASSWORD'),
+    'database': os.environ.get('DB_NAME'),
 }
 
 # ---------------- LOGIN ------------------
@@ -45,13 +45,11 @@ def login():
 
     return render_template('login.html')
 
-
 # ---------------- LOGOUT ------------------
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
-
 
 # ---------------- STOCKS PAGE ------------------
 @app.route('/stocks')
@@ -68,13 +66,11 @@ def stocks():
         conn.close()
 
         total_value = sum(item['quantity'] * item['subtotal'] for item in items)
-
         return render_template('stocks.html', items=items, total_value=total_value)
 
     except mysql.connector.Error as err:
         flash(f"Database error: {err}")
         return render_template('stocks.html', items=[], total_value=0)
-
 
 # ---------------- STOCK ACTION PAGE ------------------
 @app.route('/stock/<int:item_id>/<action>', methods=['GET', 'POST'])
@@ -127,7 +123,6 @@ def stock_action(item_id, action):
             cursor.close()
         if conn:
             conn.close()
-
 
 # ---------------- MAIN ------------------
 if __name__ == '__main__':
