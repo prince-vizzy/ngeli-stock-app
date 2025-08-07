@@ -4,20 +4,33 @@ import mysql.connector
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env
+# Load environment variables
 load_dotenv()
 
 # Create Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'fallback_secret_key')
 
-# Database config from environment
+# Database config
 db_config = {
     'host': os.environ.get('DB_HOST'),
     'user': os.environ.get('DB_USER'),
     'password': os.environ.get('DB_PASSWORD'),
     'database': os.environ.get('DB_NAME'),
 }
+
+# ---------------- ROOT ------------------
+@app.route('/')
+def home():
+    return redirect(url_for('login'))
+
+@app.route('/')
+def index():
+    if 'username' in session:
+        return redirect(url_for('stocks'))
+    else:
+        return redirect(url_for('login'))
+
 
 # ---------------- LOGIN ------------------
 @app.route('/login', methods=['GET', 'POST'])
@@ -26,29 +39,31 @@ def login():
         username = request.form['username']
         password = request.form['password']
 
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
+        try:
+            conn = mysql.connector.connect(**db_config)
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            cursor.close()
+            conn.close()
 
-        cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
-        user = cursor.fetchone()
+            if user and check_password_hash(user['password'], password):
+                session['username'] = user['username']
+                flash('Login successful', 'success')
+                return redirect(url_for('stocks'))  # Adjust if needed
+            else:
+                flash('Invalid username or password', 'danger')
 
-        cursor.close()
-        conn.close()
-
-        if user:
-            session['username'] = user['username']
-            flash('Login successful', 'success')
-            return redirect(url_for('index'))  # Change if your dashboard route is different
-        else:
-            flash('Invalid username or password', 'danger')
+        except mysql.connector.Error as err:
+            flash(f"Database error: {err}", 'danger')
 
     return render_template('login.html')
-
 
 # ---------------- LOGOUT ------------------
 @app.route('/logout')
 def logout():
     session.pop('username', None)
+    flash("Logged out successfully.", "info")
     return redirect(url_for('login'))
 
 # ---------------- STOCKS PAGE ------------------
@@ -69,7 +84,7 @@ def stocks():
         return render_template('stocks.html', items=items, total_value=total_value)
 
     except mysql.connector.Error as err:
-        flash(f"Database error: {err}")
+        flash(f"Database error: {err}", 'danger')
         return render_template('stocks.html', items=[], total_value=0)
 
 # ---------------- STOCK ACTION PAGE ------------------
@@ -78,6 +93,8 @@ def stock_action(item_id, action):
     if 'username' not in session:
         return redirect(url_for('login'))
 
+    conn = None
+    cursor = None
     try:
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor(dictionary=True)
@@ -85,7 +102,7 @@ def stock_action(item_id, action):
         item = cursor.fetchone()
 
         if not item:
-            flash('Item not found.')
+            flash('Item not found.', 'warning')
             return redirect(url_for('stocks'))
 
         if request.method == 'POST':
@@ -98,34 +115,31 @@ def stock_action(item_id, action):
                 elif selected_action == 'remove':
                     new_qty = item['quantity'] - qty
                     if new_qty < 0:
-                        flash('Not enough stock to remove that amount.')
+                        flash('Not enough stock to remove that amount.', 'danger')
                         return redirect(request.url)
                 else:
-                    flash('Invalid action.')
+                    flash('Invalid action.', 'warning')
                     return redirect(url_for('stocks'))
 
                 cursor.execute("UPDATE items SET quantity = %s WHERE item_id = %s", (new_qty, item_id))
                 conn.commit()
-                flash(f"Stock successfully {selected_action}ed.")
+                flash(f"Stock successfully {selected_action}ed.", 'success')
                 return redirect(url_for('stocks'))
 
             except ValueError:
-                flash('Invalid quantity. Please enter a number.')
+                flash('Invalid quantity. Please enter a valid number.', 'danger')
 
         return render_template('stock_action.html', item=item, action=action)
 
     except mysql.connector.Error as err:
-        flash(f"Database error: {err}")
+        flash(f"Database error: {err}", 'danger')
         return redirect(url_for('stocks'))
 
     finally:
-        try:
-            if cursor:
-                cursor.close()
-            if conn:
-                conn.close()
-        except:
-            pass
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 # ---------------- MAIN ------------------
 if __name__ == '__main__':
