@@ -36,31 +36,30 @@ def index():
 
 
 # ---------------- LOGIN ------------------
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['POST'])
 def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+    username = request.form['username']
+    password = request.form['password']
 
-        try:
-            conn = mysql.connector.connect(**db_config)
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-            user = cursor.fetchone()
-            cursor.close()
-            conn.close()
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor(dictionary=True)  # ensures dict output
+    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cursor.fetchone()
 
-            if user and check_password_hash(user['password'], password):
-                session['username'] = user['username']
-                flash('Login successful', 'success')
-                return redirect(url_for('stocks'))  # Adjust if needed
-            else:
-                flash('Invalid username or password', 'danger')
+    cursor.close()
+    conn.close()
 
-        except mysql.connector.Error as err:
-            flash(f"Database error: {err}", 'danger')
+    if user is None:
+        flash("Invalid username or password")
+        return redirect(url_for('login'))
 
-    return render_template('login.html')
+    if check_password_hash(user['password'], password):
+        session['username'] = user['username']
+        return redirect(url_for('index'))
+    else:
+        flash("Invalid username or password")
+        return redirect(url_for('login'))
+
 
 # ---------------- LOGOUT ------------------
 @app.route('/logout')
