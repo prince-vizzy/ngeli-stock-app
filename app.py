@@ -4,14 +4,14 @@ import mysql.connector
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env
 load_dotenv()
 
 # Create Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY') or 'fallback_secret_key'
+app.secret_key = os.environ.get('SECRET_KEY', 'fallback_secret_key')
 
-# ---------------- DATABASE CONFIG ------------------
+# Database config from environment
 db_config = {
     'host': os.environ.get('DB_HOST'),
     'user': os.environ.get('DB_USER'),
@@ -20,30 +20,30 @@ db_config = {
 }
 
 # ---------------- LOGIN ------------------
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
 
-        try:
-            conn = mysql.connector.connect(**db_config)
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-            user = cursor.fetchone()
-            cursor.close()
-            conn.close()
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
 
-            if user and check_password_hash(user['password_hash'], password):
-                session['username'] = user['username']
-                return redirect(url_for('stocks'))
-            else:
-                flash('Invalid username or password.')
+        cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
+        user = cursor.fetchone()
 
-        except mysql.connector.Error as err:
-            flash(f"Database error: {err}")
+        cursor.close()
+        conn.close()
+
+        if user:
+            session['username'] = user['username']
+            flash('Login successful', 'success')
+            return redirect(url_for('index'))  # Change if your dashboard route is different
+        else:
+            flash('Invalid username or password', 'danger')
 
     return render_template('login.html')
+
 
 # ---------------- LOGOUT ------------------
 @app.route('/logout')
@@ -119,10 +119,13 @@ def stock_action(item_id, action):
         return redirect(url_for('stocks'))
 
     finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        try:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+        except:
+            pass
 
 # ---------------- MAIN ------------------
 if __name__ == '__main__':
