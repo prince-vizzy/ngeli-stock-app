@@ -1,22 +1,22 @@
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import check_password_hash
 import mysql.connector
+import os
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
+# Create Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY')
- # Change this in production
+app.secret_key = os.environ.get('SECRET_KEY') or 'fallback_secret_key'  # Ensure it's never None
 
 # ---------------- DATABASE CONFIG ------------------
 db_config = {
-    'host': os.environ.get('localhost'),
-    'user': os.environ.get('root'),
-    'password': os.environ.get('9193'),
-    'database': os.environ.get('ngeli_db'),
+    'host': 'sql8.freesqldatabase.com',
+    'user': 'sql8794024',
+    'password': 'uVCUIwx8Wy',
+    'database': 'sql8794024',
 }
 
 # ---------------- LOGIN ------------------
@@ -39,6 +39,7 @@ def login():
                 return redirect(url_for('stocks'))
             else:
                 flash('Invalid username or password.')
+
         except mysql.connector.Error as err:
             flash(f"Database error: {err}")
 
@@ -130,4 +131,5 @@ def stock_action(item_id, action):
 
 # ---------------- MAIN ------------------
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
