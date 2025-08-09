@@ -20,11 +20,7 @@ db_config = {
     'port': int(os.getenv('DB_PORT', 3306))
 }
 
-
-
 # ---------------- ROOT ------------------
-
-
 @app.route('/')
 def index():
     if 'username' in session:
@@ -51,14 +47,14 @@ def login():
             if user and check_password_hash(user['password_hash'], password):
                 session['username'] = user['username']
                 flash('Login successful', 'success')
-                return redirect(url_for('stocks'))  # Adjust if needed
+                return redirect(url_for('stocks'))
             else:
                 flash('Invalid username or password', 'danger')
-
         except mysql.connector.Error as err:
             flash(f"Database error: {err}", 'danger')
 
     return render_template('login.html')
+
 # ---------------- LOGOUT ------------------
 @app.route('/logout')
 def logout():
@@ -80,12 +76,37 @@ def stocks():
         cursor.close()
         conn.close()
 
+        # Adjust this if your DB uses a different field than 'subtotal'
         total_value = sum(item['quantity'] * item['subtotal'] for item in items)
         return render_template('stocks.html', items=items, total_value=total_value)
 
     except mysql.connector.Error as err:
         flash(f"Database error: {err}", 'danger')
         return render_template('stocks.html', items=[], total_value=0)
+
+# ---------------- STOCK HISTORY PAGE ------------------
+@app.route('/stock_history/<int:item_id>')
+def stock_history(item_id):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT sh.*, i.item_name
+            FROM stock_history sh
+            JOIN items i ON sh.item_id = i.item_id
+            WHERE sh.item_id = %s
+            ORDER BY sh.change_date DESC
+        """, (item_id,))
+        history = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return render_template('stock_history.html', history=history)
+    except mysql.connector.Error as err:
+        flash(f"Database error: {err}", 'danger')
+        return redirect(url_for('stocks'))
 
 # ---------------- STOCK ACTION PAGE ------------------
 @app.route('/stock/<int:item_id>/<action>', methods=['GET', 'POST'])
@@ -121,7 +142,15 @@ def stock_action(item_id, action):
                     flash('Invalid action.', 'warning')
                     return redirect(url_for('stocks'))
 
+                # Update stock
                 cursor.execute("UPDATE items SET quantity = %s WHERE item_id = %s", (new_qty, item_id))
+
+                # Log change
+                cursor.execute("""
+                    INSERT INTO stock_history (item_id, item_name, change_type, quantity_changed, changed_by)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (item['item_id'], item['item_name'], selected_action, qty, session['username']))
+
                 conn.commit()
                 flash(f"Stock successfully {selected_action}ed.", 'success')
                 return redirect(url_for('stocks'))
